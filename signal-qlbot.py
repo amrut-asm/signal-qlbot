@@ -3,6 +3,7 @@ from gi.repository import GLib
 import requests
 import json
 import time
+import re
 
 
 def msgRcv(timestamp, source, groupID, message, attachments):
@@ -18,22 +19,27 @@ def msgRcv(timestamp, source, groupID, message, attachments):
         try:
             response = requests.get(url=URL, params=payload)
         except:
-            print("Failed to make request to ql.syncore.org")
+            print("Failed to make request to a2sapi")
             return
 
-        json_data = json.loads(response.text)
+        try:
+            json_data = json.loads(response.text)
+        except:
+            return
         ap_list = []
         for sv_index in range(0, json_data["serverCount"]):
             payload_list = []
             final_string = ''
-            ap_list.append("SV {0}".format(sv_index+1))
+            ap_list.append("Server {0}".format(sv_index+1))
             ap_list.append("**********************************")
             ap_list.append(" ")
             # Print server name
             payload_list.append("Server Name")
             payload_list.append("-----")
-            payload_list.append(
-                json_data["servers"][sv_index]["info"]["serverName"])
+            pattern = r'\^[1-7]'
+            sv_mod_name = re.sub(
+                pattern, '', json_data["servers"][sv_index]["info"]["serverName"])
+            payload_list.append(sv_mod_name)
             payload_list.append(" ")
 
             # Player count
@@ -64,7 +70,7 @@ def msgRcv(timestamp, source, groupID, message, attachments):
             payload_list.append(" ")
 
             # Print number of players online
-            payload_list.append("Players online")
+            payload_list.append("Players Online")
             payload_list.append("-----")
             payload_list.append(
                 str(json_data["servers"][sv_index]["info"]["players"]))
@@ -74,7 +80,11 @@ def msgRcv(timestamp, source, groupID, message, attachments):
             payload_list.append("Players List")
             payload_list.append("-----")
             for player_index in json_data["servers"][sv_index]["players"]:
-                payload_list.append(player_index["name"])
+                pattern = r'\^[1-7]'
+                re_patched_name = re.sub(pattern, '', player_index["name"])
+                if not re_patched_name:
+                    re_patched_name = "UnnamedPlayer"
+                payload_list.append(re_patched_name)
             payload_list.append(" ")
 
             final_string = "\n".join(payload_list)
