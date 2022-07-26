@@ -1,5 +1,7 @@
 ## Needs signal-cli (https://github.com/AsamK/signal-cli)
 
+## Signal-cli needs to be started with the the dbus interface and in daemon mode!
+
 # signal-qlbot
 * Get info about a quake live server (player names, map etc.) from your Signal group
 
