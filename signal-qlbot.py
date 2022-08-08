@@ -5,8 +5,31 @@ import json
 import time
 import re
 
+def construct_signal_string(servers):
+    r_list = []
+    for index, record in enumerate(servers, start=1):
+        r_list.append(f"Server {index}")
+        r_list.append("****************")
+        r_list.append(record["sv_name"])
+        r_list.append(" ")
+        r_list.append(f'Map    :    {record["map"]}')
+        r_list.append(" ")
+        r_list.append(f'Type   :    {record["type"]}')
+        r_list.append(" ")
+        if(not record["players"]):
+          r_list.append("Server is empty!")
+          r_list.append(" ")
+          continue 
+        r_list.append(f'Score  :    {record["score"]}')
+        r_list.append(" ")
+        r_list.append(f'Players ({record["player_count"]})')
+        r_list.append("---")
+        r_list.append("\n".join(record["players"]))
+        r_list.append(" ")
+ 
+    return "\n".join(r_list)
 
-def msgRcv(timestamp, source, groupID, message, attachments):
+def message_handler(timestamp, source, groupID, message, attachments):
     if (groupID == []):
         return
 
@@ -26,73 +49,55 @@ def msgRcv(timestamp, source, groupID, message, attachments):
             json_data = json.loads(response.text)
         except:
             return
-        ap_list = []
-        for sv_index in range(0, json_data["serverCount"]):
-            payload_list = []
-            final_string = ''
-            ap_list.append("Server {0}".format(sv_index+1))
-            ap_list.append("**********************************")
-            ap_list.append(" ")
-            # Print server name
-            payload_list.append("Server Name")
-            payload_list.append("-----")
-            pattern = r'\^[1-7]'
-            sv_mod_name = re.sub(
-                pattern, '', json_data["servers"][sv_index]["info"]["serverName"])
-            payload_list.append(sv_mod_name)
-            payload_list.append(" ")
+    
+        pattern = r'\^[1-7]'
+        keys = ["sv_name", "player_count", "map", "type", "score", "players"]
+        servers = []
 
-            # Player count
-            count = int(json_data["servers"][sv_index]["info"]["players"])
+        for sv_index in range(json_data["serverCount"]):
+            sv_dict = {key: None for key in keys}
+            players_list = [] 
+            sv_info = json_data["servers"][sv_index]["info"]
+            sv_players = json_data["servers"][sv_index]["players"]
+            sv_rules = json_data["servers"][sv_index]["rules"]
 
-            # Don't print details if players online are 0
-            if (count == 0):
-                payload_list.append("Server is empty!")
-                payload_list.append(" ")
-                final_string = "\n".join(payload_list)
-                #signal.sendGroupMessage(final_string, [], groupID)
-                ap_list.append(final_string)
-                continue
+            # Get server name
+            r_sv_name = str(re.sub(pattern, '', sv_info["serverName"]))
 
-            # Print map name
-            payload_list.append(
-                "Map   :   " + (json_data["servers"][sv_index]["info"]["map"]).title())
-            payload_list.append(" ")
+            # Get player count
+            r_player_count = int(sv_info["players"])
 
-            # Print game type
-            payload_list.append(
-                "Type  :   " + (json_data["servers"][sv_index]["info"]["game"]))
-            payload_list.append(" ")
+            # Get map name
+            r_map = str(sv_info["map"])
 
-            # Print score
-            payload_list.append("Score :   " + (json_data["servers"][sv_index]["rules"]["g_redScore"]) + ":" + (
-                json_data["servers"][sv_index]["rules"]["g_blueScore"]))
-            payload_list.append(" ")
+            # Get game type
+            r_type = str(sv_info["game"])
 
-            # Print number of players online
-            payload_list.append("Players Online")
-            payload_list.append("-----")
-            payload_list.append(
-                str(json_data["servers"][sv_index]["info"]["players"]))
-            payload_list.append(" ")
+            # Get score
+            r_score = str(sv_rules["g_redScore"]+":"+sv_rules["g_blueScore"])
 
-            # Print names of players online
-            payload_list.append("Players List")
-            payload_list.append("-----")
-            for player_index in json_data["servers"][sv_index]["players"]:
-                pattern = r'\^[1-7]'
-                re_patched_name = re.sub(pattern, '', player_index["name"])
-                if not re_patched_name:
-                    re_patched_name = "UnnamedPlayer"
-                payload_list.append(re_patched_name)
-            payload_list.append(" ")
+            # Get names of players online
+            # Sanitize names
+            for player_index in sv_players:
+                patched_name = re.sub(pattern, '', player_index["name"])
+                if not patched_name:
+                    patched_name = "UnnamedPlayer"
+                players_list.append(str(patched_name))
+            r_players = players_list
 
-            final_string = "\n".join(payload_list)
-            ap_list.append(final_string)
+            sv_dict["sv_name"] = r_sv_name
+            sv_dict["player_count"] = r_player_count
+            sv_dict["map"] = r_map
+            sv_dict["type"] = r_type
+            sv_dict["score"] = r_score
+            sv_dict["players"] = r_players
+            servers.append(sv_dict)
 
-    fstring = "\n".join(ap_list)
+        sorted_servers = sorted(servers, key=lambda x: x["player_count"])
+        signal_text = construct_signal_string(sorted_servers)
+
     try:
-        signal.sendGroupMessage(fstring, [], groupID)
+        signal.sendGroupMessage(signal_text, [], groupID)
     except:
         print("Exception while sending message to group...")
     return
@@ -105,9 +110,10 @@ flag = 0
 while(flag == 0):
     try:
         signal = bus.get('org.asamk.Signal')
-        signal.onMessageReceived = msgRcv
+        signal.onMessageReceived = message_handler
         flag = 1
     except:
+        # Assume D-Bus session is not up yet
         print("D-Bus session bus is not up yet... sleeping")
         time.sleep(5)
         flag = 0
