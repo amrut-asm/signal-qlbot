@@ -27,6 +27,7 @@ def construct_signal_string(servers):
         r_list.append("\n".join(record["players"]))
         r_list.append(" ")
  
+    r_list.append("Server data graciously provided courtesy of VersoNix, the greatest FPS legend of the world.")
     return "\n".join(r_list)
 
 def message_handler(timestamp, source, groupID, message, attachments):
