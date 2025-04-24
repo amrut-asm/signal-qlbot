@@ -1,0 +1,10 @@
+version: '3.9'
+services:
+  signal-bot:
+    image: signal-bot:latest
+    environment:
+      - API_URL=https://ql.syncore.org/api/query?ids=41994%2C39629%2C65739
+    container_name: signal-bot
+    restart: unless-stopped
+    volumes:
+      - ./signal-cli:/root/.local/share/signal-cli

@@ -4,6 +4,9 @@ import requests
 import json
 import time
 import re
+import os
+
+API_URL = os.environ.get('API_URL', 'https://ql.syncore.org/api/query?ids=39629%2C%2041994')
 
 def construct_signal_string(servers):
     r_list = []
@@ -27,7 +30,6 @@ def construct_signal_string(servers):
         r_list.append("\n".join(record["players"]))
         r_list.append(" ")
  
-    r_list.append("Server data graciously provided courtesy of VersoNix, the greatest FPS legend of the world.")
     return "\n".join(r_list)
 
 def message_handler(timestamp, source, groupID, message, attachments):
@@ -37,12 +39,12 @@ def message_handler(timestamp, source, groupID, message, attachments):
     if (message != ".ql"):
         return
 
-    if ((signal.getGroupName(groupID) == "test") or (signal.getGroupName(groupID) == "quake 2.0")):
-        URL = "https://ql.syncore.org/api/servers"
-        payload = {'countries': 'IN'}
+    if ((signal.getGroupName(groupID) == "test") or (signal.getGroupName(groupID) == "quake 2.0/quackcontest 1.0")):
+        URL = API_URL
         try:
-            response = requests.get(url=URL, params=payload)
+            response = requests.get(url=URL, timeout=6)
         except:
+            signal.sendGroupMessage("Timeout while fetching data from ql.syncore.org, please try again!", [], groupID)
             print("Failed to make request to a2sapi")
             return
 
@@ -59,14 +61,16 @@ def message_handler(timestamp, source, groupID, message, attachments):
             sv_dict = {key: None for key in keys}
             players_list = [] 
             sv_info = json_data["servers"][sv_index]["info"]
-            sv_players = json_data["servers"][sv_index]["players"]
+            sv_players_info = json_data["servers"][sv_index]["filteredPlayers"]
+            #print(json_data["servers"][sv_index])
+            sv_players = sv_players_info["players"]
             sv_rules = json_data["servers"][sv_index]["rules"]
 
             # Get server name
             r_sv_name = str(re.sub(pattern, '', sv_info["serverName"]))
 
             # Get player count
-            r_player_count = int(sv_info["players"])
+            r_player_count = int(sv_players_info["count"])
 
             # Get map name
             r_map = str(sv_info["map"])
@@ -121,3 +125,4 @@ while(flag == 0):
 
 print("D-Bus session bus is up... entering event loop")
 loop.run()
+
